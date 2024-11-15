@@ -1,3 +1,12 @@
 package main
 
-func main() {}
+import (
+	"github.com/JoelSpeed/kal/pkg/analysis/jsontags"
+	"golang.org/x/tools/go/analysis/multichecker"
+)
+
+func main() {
+	multichecker.Main(
+		jsontags.Analyzer,
+	)
+}

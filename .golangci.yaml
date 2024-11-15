@@ -78,6 +78,8 @@ linters-settings:
       - "github.com/onsi/ginkgo/v2"
       - "github.com/onsi/gomega"
 issues:
+  exclude:
+  - Analyzer is a global variable
   exclude-use-default: false
   exclude-rules:
     # Exclude some linters from running on tests files.
@@ -88,3 +90,5 @@ issues:
         - gosec
         - gochecknoglobals
         - goerr113
+    - path: testdata
+      
