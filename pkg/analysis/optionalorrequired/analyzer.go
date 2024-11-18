@@ -1,13 +1,13 @@
 package optionalorrequired
 
 import (
+	"fmt"
 	"go/ast"
 
 	"github.com/JoelSpeed/kal/pkg/analysis/markers"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
-	"k8s.io/kube-openapi/pkg/util/sets"
 )
 
 const (
@@ -70,34 +70,87 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	return nil, nil
 }
 
-func checkField(pass *analysis.Pass, field *ast.Field, fieldMarkers []string) {
+func checkField(pass *analysis.Pass, field *ast.Field, fieldMarkers markers.MarkerSet) {
 	if field == nil || len(field.Names) == 0 {
 		return
 	}
 
 	fieldName := field.Names[0].Name
 
-	markerSet := sets.NewString(fieldMarkers...)
+	hasOptional := fieldMarkers.Has(optionalMarker)
+	hasRequired := fieldMarkers.Has(requiredMarker)
 
-	hasOptional := markerSet.Has(optionalMarker)
-	hasRequired := markerSet.Has(requiredMarker)
-
-	hasKubebuilderOptional := markerSet.Has(kubebuilderOptionalMarker)
-	hasKubebuilderRequired := markerSet.Has(kubebuilderRequiredMarker)
+	hasKubebuilderOptional := fieldMarkers.Has(kubebuilderOptionalMarker)
+	hasKubebuilderRequired := fieldMarkers.Has(kubebuilderRequiredMarker)
 
 	hasEitherOptional := hasOptional || hasKubebuilderOptional
 	hasEitherRequired := hasRequired || hasKubebuilderRequired
+
+	hasBothOptional := hasOptional && hasKubebuilderOptional
+	hasBothRequired := hasRequired && hasKubebuilderRequired
 
 	switch {
 	case hasEitherOptional && hasEitherRequired:
 		pass.Reportf(field.Pos(), "field %s must not be marked as both optional and required", fieldName)
 	case hasKubebuilderOptional:
-		pass.Reportf(field.Pos(), "field %s should use marker optional instead of kubebuilder:validation:Optional", fieldName)
+		marker := fieldMarkers[kubebuilderOptionalMarker]
+		if hasBothOptional {
+			pass.Report(reportShouldRemoveKubebuilderMarker(field, marker, optionalMarker, kubebuilderOptionalMarker))
+		} else {
+			pass.Report(reportShouldReplaceKubebuilderMarker(field, marker, optionalMarker, kubebuilderOptionalMarker))
+		}
 	case hasKubebuilderRequired:
-		pass.Reportf(field.Pos(), "field %s should use marker required instead of kubebuilder:validation:Required", fieldName)
+		marker := fieldMarkers[kubebuilderRequiredMarker]
+		if hasBothRequired {
+			pass.Report(reportShouldRemoveKubebuilderMarker(field, marker, requiredMarker, kubebuilderRequiredMarker))
+		} else {
+			pass.Report(reportShouldReplaceKubebuilderMarker(field, marker, requiredMarker, kubebuilderRequiredMarker))
+		}
 	case hasOptional || hasRequired:
 		// This is the correct state.
 	default:
 		pass.Reportf(field.Pos(), "field %s must be marked as optional or required", fieldName)
+	}
+}
+
+func reportShouldReplaceKubebuilderMarker(field *ast.Field, marker markers.Marker, desiredMarker, kubebuilderMaker string) analysis.Diagnostic {
+	fieldName := field.Names[0].Name
+
+	return analysis.Diagnostic{
+		Pos:     field.Pos(),
+		Message: fmt.Sprintf("field %s should use marker %s instead of %s", fieldName, desiredMarker, kubebuilderMaker),
+		SuggestedFixes: []analysis.SuggestedFix{
+			{
+				Message: fmt.Sprintf("should replace `%s` with `%s`", kubebuilderMaker, desiredMarker),
+				TextEdits: []analysis.TextEdit{
+					{
+						Pos:     marker.Pos,
+						End:     marker.End,
+						NewText: []byte(fmt.Sprintf("// +%s", desiredMarker)),
+					},
+				},
+			},
+		},
+	}
+}
+
+func reportShouldRemoveKubebuilderMarker(field *ast.Field, marker markers.Marker, desiredMarker, kubebuilderMaker string) analysis.Diagnostic {
+	fieldName := field.Names[0].Name
+
+	return analysis.Diagnostic{
+		Pos:     field.Pos(),
+		Message: fmt.Sprintf("field %s should use only the marker %s, %s is not required", fieldName, desiredMarker, kubebuilderMaker),
+		SuggestedFixes: []analysis.SuggestedFix{
+			{
+				Message: fmt.Sprintf("should remove `// +%s`", kubebuilderMaker),
+				TextEdits: []analysis.TextEdit{
+					{
+						Pos:     marker.Pos,
+						End:     marker.End + 1, // Add 1 to position to include the new line
+						NewText: nil,
+					},
+				},
+			},
+		},
 	}
 }

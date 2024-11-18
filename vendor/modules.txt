@@ -1146,9 +1146,6 @@ honnef.co/go/tools/stylecheck/st1021
 honnef.co/go/tools/stylecheck/st1022
 honnef.co/go/tools/stylecheck/st1023
 honnef.co/go/tools/unused
-# k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f
-## explicit; go 1.20
-k8s.io/kube-openapi/pkg/util/sets
 # mvdan.cc/gofumpt v0.7.0
 ## explicit; go 1.22
 mvdan.cc/gofumpt/format

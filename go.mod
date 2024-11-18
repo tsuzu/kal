@@ -5,7 +5,6 @@ go 1.22.1
 require (
 	github.com/golangci/golangci-lint v1.62.0
 	golang.org/x/tools v0.27.0
-	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f
 )
 
 require (
