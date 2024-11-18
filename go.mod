@@ -5,6 +5,7 @@ go 1.22.1
 require (
 	github.com/golangci/golangci-lint v1.62.0
 	golang.org/x/tools v0.27.0
+	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f
 )
 
 require (
@@ -64,7 +65,7 @@ require (
 	github.com/go-xmlfmt/xmlfmt v1.1.2 // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.12.1 // indirect
-	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golangci/dupl v0.0.0-20180902072040-3e9179ac440a // indirect
 	github.com/golangci/go-printf-func-name v0.1.0 // indirect
 	github.com/golangci/gofmt v0.0.0-20240816233607-d8596aa466a9 // indirect
