@@ -6,7 +6,7 @@ import (
 	"go/token"
 	"strings"
 
-	"github.com/JoelSpeed/kal/pkg/analysis/jsontags"
+	"github.com/JoelSpeed/kal/pkg/analysis/helpers/extractjsontags"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -18,12 +18,12 @@ var Analyzer = &analysis.Analyzer{
 	Name:     "commentstart",
 	Doc:      "Check that all struct fields in an API have a godoc, and that the godoc starts with the serialised field name",
 	Run:      run,
-	Requires: []*analysis.Analyzer{inspect.Analyzer, jsontags.Analyzer},
+	Requires: []*analysis.Analyzer{inspect.Analyzer, extractjsontags.Analyzer},
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-	jsonTags := pass.ResultOf[jsontags.Analyzer].(*map[ast.Node]map[string]jsontags.FieldTagInfo)
+	jsonTags := pass.ResultOf[extractjsontags.Analyzer].(extractjsontags.StructFieldTags)
 
 	// Filter to structs so that we can iterate over fields in a struct.
 	nodeFilter := []ast.Node{
@@ -31,32 +31,31 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	}
 
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
-		jsonTagsByField := (*jsonTags)[n]
-
-		styp, ok := n.(*ast.StructType)
+		sTyp, ok := n.(*ast.StructType)
 		if !ok {
 			return
 		}
 
-		if styp.Fields == nil {
+		if sTyp.Fields == nil {
 			return
 		}
 
-		for _, field := range styp.Fields.List {
-			checkField(pass, field, jsonTagsByField)
+		for _, field := range sTyp.Fields.List {
+			checkField(pass, sTyp, field, jsonTags)
 		}
 	})
 
 	return nil, nil
 }
 
-func checkField(pass *analysis.Pass, field *ast.Field, jsonTagsByField map[string]jsontags.FieldTagInfo) {
+func checkField(pass *analysis.Pass, sTyp *ast.StructType, field *ast.Field, jsonTags extractjsontags.StructFieldTags) {
 	if field == nil || len(field.Names) == 0 {
 		return
 	}
 
 	fieldName := field.Names[0].Name
-	tagInfo := jsonTagsByField[fieldName]
+
+	tagInfo := jsonTags.FieldTags(sTyp, fieldName)
 
 	if tagInfo.Name == "" {
 		return

@@ -11,6 +11,68 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
+// Markers allows access to markers extracted from the
+// go types.
+type Markers interface {
+	// StructMarkers returns markers associated to the given sturct.
+	StructMarkers(*ast.StructType) MarkerSet
+
+	// StructFieldMarkers returns markers associated to the named field in the given struct.
+	StructFieldMarkers(*ast.StructType, string) MarkerSet
+}
+
+func newMarkers() Markers {
+	return &markers{
+		structMarkers:      make(map[*ast.StructType]MarkerSet),
+		structFieldMarkers: make(map[*ast.StructType]map[string]MarkerSet),
+	}
+}
+
+// markers implements the storage for the implementation of the Markers interface
+type markers struct {
+	structMarkers      map[*ast.StructType]MarkerSet
+	structFieldMarkers map[*ast.StructType]map[string]MarkerSet
+}
+
+// StructMarkers returns the appropriate MarkerSet if found, else
+// it returns an empty MarkerSet.
+func (m *markers) StructMarkers(sTyp *ast.StructType) MarkerSet {
+	sMarkers, ok := m.structMarkers[sTyp]
+	if !ok {
+		return NewMarkerSet()
+	}
+
+	return sMarkers
+}
+
+// StructFieldMarkers return the appropriate MarkerSet for the named field in the
+// given struct, or an empty MarkerSet if the appropriate MarkerSet isn't found.
+func (m *markers) StructFieldMarkers(sTyp *ast.StructType, field string) MarkerSet {
+	sMarkers, ok := m.structFieldMarkers[sTyp]
+	if !ok {
+		return NewMarkerSet()
+	}
+
+	fMarkers, ok := sMarkers[field]
+	if !ok {
+		return NewMarkerSet()
+	}
+
+	return fMarkers
+}
+
+func (m *markers) insertStructMarkers(sTyp *ast.StructType, ms MarkerSet) {
+	m.structMarkers[sTyp] = ms
+}
+
+func (m *markers) insertStructFieldMarkers(sTyp *ast.StructType, field string, ms MarkerSet) {
+	if m.structFieldMarkers[sTyp] == nil {
+		m.structFieldMarkers[sTyp] = make(map[string]MarkerSet)
+	}
+
+	m.structFieldMarkers[sTyp][field] = ms
+}
+
 // Analyzer is the analyzer for the markers package.
 // It iterates over declarations within a package and parses the comments to extract markers.
 var Analyzer = &analysis.Analyzer{
@@ -18,7 +80,7 @@ var Analyzer = &analysis.Analyzer{
 	Doc:        "Iterates over declarations within a package and parses the comments to extract markers",
 	Run:        run,
 	Requires:   []*analysis.Analyzer{inspect.Analyzer},
-	ResultType: reflect.TypeOf(new(Markers)),
+	ResultType: reflect.TypeOf(newMarkers()),
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
@@ -29,9 +91,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		(*ast.GenDecl)(nil),
 	}
 
-	results := &Markers{
-		StructMarkers: make(map[*ast.StructType]StructMarkers),
-	}
+	results := newMarkers().(*markers)
 
 	inspect.Preorder(declFilter, func(n ast.Node) {
 		decl, ok := n.(*ast.GenDecl)
@@ -48,7 +108,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			switch typeSpec.Type.(type) {
 			case *ast.StructType:
 				sTyp := typeSpec.Type.(*ast.StructType)
-				results.StructMarkers[sTyp] = extractStructMarkers(decl, sTyp)
+				extractStructMarkers(decl, sTyp, results)
 			}
 		}
 	})
@@ -56,24 +116,18 @@ func run(pass *analysis.Pass) (interface{}, error) {
 	return results, nil
 }
 
-func extractStructMarkers(decl *ast.GenDecl, sTyp *ast.StructType) StructMarkers {
-	structMarkers := StructMarkers{
-		Markers: NewMarkerSet(),
-	}
+func extractStructMarkers(decl *ast.GenDecl, sTyp *ast.StructType, results *markers) {
+	structMarkers := NewMarkerSet()
 
 	if decl.Doc != nil {
 		for _, comment := range decl.Doc.List {
 			if marker := extractMarker(comment); marker.Value != "" {
-				structMarkers.Markers.Insert(marker)
+				structMarkers.Insert(marker)
 			}
 		}
 	}
 
-	if sTyp.Fields == nil {
-		return structMarkers
-	}
-
-	structMarkers.FieldMarkers = make(map[string]MarkerSet)
+	results.insertStructMarkers(sTyp, structMarkers)
 
 	for _, field := range sTyp.Fields.List {
 		if field == nil || len(field.Names) == 0 {
@@ -84,19 +138,18 @@ func extractStructMarkers(decl *ast.GenDecl, sTyp *ast.StructType) StructMarkers
 			continue
 		}
 
-		fieldName := field.Names[0].Name
+		fieldMarkers := NewMarkerSet()
 		for _, comment := range field.Doc.List {
 			if marker := extractMarker(comment); marker.Value != "" {
-				if structMarkers.FieldMarkers[fieldName] == nil {
-					structMarkers.FieldMarkers[fieldName] = NewMarkerSet()
-				}
-
-				structMarkers.FieldMarkers[fieldName].Insert(marker)
+				fieldMarkers.Insert(marker)
 			}
 		}
+
+		fieldName := field.Names[0].Name
+		results.insertStructFieldMarkers(sTyp, fieldName, fieldMarkers)
 	}
 
-	return structMarkers
+	return
 }
 
 func extractMarker(comment *ast.Comment) Marker {
@@ -110,24 +163,6 @@ func extractMarker(comment *ast.Comment) Marker {
 		Pos:        comment.Pos(),
 		End:        comment.End(),
 	}
-}
-
-type Markers struct {
-	// StructMarkers contains the markers for each struct in the package.
-	StructMarkers map[*ast.StructType]StructMarkers
-}
-
-type StructMarkers struct {
-	// Markers contains the markers for the struct.
-	// It uses the MarkerSet to store the markers allowing lookup of detailed
-	// marker information based on the marker value.
-	Markers MarkerSet
-
-	// FieldMarkers contains the markers for each field in the struct.
-	// Mapped  by field name to a MarkerSet for the field.
-	// MarkerSet stores the markers, allowing lookup of detailed
-	// marker information based on the marker value.
-	FieldMarkers map[string]MarkerSet
 }
 
 type Marker struct {

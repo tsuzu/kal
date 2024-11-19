@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 
-	"github.com/JoelSpeed/kal/pkg/analysis/markers"
+	"github.com/JoelSpeed/kal/pkg/analysis/helpers/markers"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -36,7 +36,7 @@ var Analyzer = &analysis.Analyzer{
 
 func run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-	markers := pass.ResultOf[markers.Analyzer].(*markers.Markers)
+	markersAccess := pass.ResultOf[markers.Analyzer].(markers.Markers)
 
 	// Filter to structs so that we can iterate over fields in a struct.
 	nodeFilter := []ast.Node{
@@ -49,8 +49,6 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			return
 		}
 
-		structMarkers := markers.StructMarkers[sTyp]
-
 		if sTyp.Fields == nil {
 			return
 		}
@@ -61,7 +59,7 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			}
 
 			fieldName := field.Names[0].Name
-			fieldMarkers := structMarkers.FieldMarkers[fieldName]
+			fieldMarkers := markersAccess.StructFieldMarkers(sTyp, fieldName)
 
 			checkField(pass, field, fieldMarkers)
 		}
