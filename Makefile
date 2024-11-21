@@ -51,3 +51,7 @@ test: fmt vet unit ## Run tests.
 .PHONY: build
 build: fmt vet ## Build KAL binary.
 	go build -o bin/kal ./cmd/kal
+
+.PHONY: build-golangci
+build-golangci: ## Run golangci-lint over the codebase.
+	${GOLANGCI_LINT} custom
