@@ -11,6 +11,8 @@ import (
 )
 
 const (
+	name = "optionalorrequired"
+
 	// optionalMarker is the marker that indicates that a field is optional.
 	optionalMarker = "optional"
 
@@ -28,7 +30,7 @@ const (
 // It checks that all struct fields are marked either with the optional or required markers.
 // It also checks that upstream markers are preferred over kubebuilder markers.
 var Analyzer = &analysis.Analyzer{
-	Name:     "optionalorrequired",
+	Name:     name,
 	Doc:      "Checks that all struct fields are marked either with the optional or required markers.",
 	Run:      run,
 	Requires: []*analysis.Analyzer{inspect.Analyzer, markers.Analyzer},

@@ -14,12 +14,14 @@ import (
 const (
 	// camelCaseRegex is a regular expression that matches camel case strings.
 	camelCaseRegex = "^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*)*$"
+
+	name = "jsontags"
 )
 
 // Analyzer is the analyzer for the jsontags package.
 // It checks that all struct fields in an API are tagged with json tags.
 var Analyzer = &analysis.Analyzer{
-	Name:     "jsontags",
+	Name:     name,
 	Doc:      "Check that all struct fields in an API are tagged with json tags",
 	Run:      run,
 	Requires: []*analysis.Analyzer{inspect.Analyzer, extractjsontags.Analyzer},

@@ -12,10 +12,12 @@ import (
 	"golang.org/x/tools/go/ast/inspector"
 )
 
+const name = "commentstart"
+
 // Analyzer is the analyzer for the commentstart package.
 // It checks that all struct fields in an API have a godoc, and that the godoc starts with the serialised field name.
 var Analyzer = &analysis.Analyzer{
-	Name:     "commentstart",
+	Name:     name,
 	Doc:      "Check that all struct fields in an API have a godoc, and that the godoc starts with the serialised field name",
 	Run:      run,
 	Requires: []*analysis.Analyzer{inspect.Analyzer, extractjsontags.Analyzer},
