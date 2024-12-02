@@ -47,5 +47,41 @@ var _ = Describe("LintersConfig", func() {
 			},
 			expectedErr: "lintersConfig.jsonTags.jsonTagRegex: Invalid value: \"^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*\": invalid regex: error parsing regexp: missing closing ): `^[a-z][a-z0-9]*(?:[A-Z][a-z0-9]*`",
 		}),
+
+		// OptionalOrRequiredConfig validation
+		Entry("With a valid OptionalOrRequiredConfig", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				OptionalOrRequired: config.OptionalOrRequiredConfig{
+					PreferredOptionalMarker: "optional",
+					PreferredRequiredMarker: "required",
+				},
+			},
+			expectedErr: "",
+		}),
+		Entry("With kubebuilder preferred markers", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				OptionalOrRequired: config.OptionalOrRequiredConfig{
+					PreferredOptionalMarker: "kubebuilder:validation:Optional",
+					PreferredRequiredMarker: "kubebuilder:validation:Required",
+				},
+			},
+			expectedErr: "",
+		}),
+		Entry("With invalid preferred optional marker", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				OptionalOrRequired: config.OptionalOrRequiredConfig{
+					PreferredOptionalMarker: "invalid",
+				},
+			},
+			expectedErr: "lintersConfig.optionalOrRequired.preferredOptionalMarker: Invalid value: \"invalid\": invalid value, must be one of \"optional\", \"kubebuilder:validation:Optional\" or omitted",
+		}),
+		Entry("With invalid preferred required marker", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				OptionalOrRequired: config.OptionalOrRequiredConfig{
+					PreferredRequiredMarker: "invalid",
+				},
+			},
+			expectedErr: "lintersConfig.optionalOrRequired.preferredRequiredMarker: Invalid value: \"invalid\": invalid value, must be one of \"required\", \"kubebuilder:validation:Required\" or omitted",
+		}),
 	)
 })

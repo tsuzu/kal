@@ -5,6 +5,7 @@ import (
 	"go/ast"
 
 	"github.com/JoelSpeed/kal/pkg/analysis/helpers/markers"
+	"github.com/JoelSpeed/kal/pkg/config"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -13,30 +14,60 @@ import (
 const (
 	name = "optionalorrequired"
 
-	// optionalMarker is the marker that indicates that a field is optional.
-	optionalMarker = "optional"
+	// OptionalMarker is the marker that indicates that a field is optional.
+	OptionalMarker = "optional"
 
-	// requiredMarker is the marker that indicates that a field is required.
-	requiredMarker = "required"
+	// RequiredMarker is the marker that indicates that a field is required.
+	RequiredMarker = "required"
 
-	// kubebuilderOptionalMarker is the marker that indicates that a field is optional in kubebuilder.
-	kubebuilderOptionalMarker = "kubebuilder:validation:Optional"
+	// KubebuilderOptionalMarker is the marker that indicates that a field is optional in kubebuilder.
+	KubebuilderOptionalMarker = "kubebuilder:validation:Optional"
 
-	// kubebuilderRequiredMarker is the marker that indicates that a field is required in kubebuilder.
-	kubebuilderRequiredMarker = "kubebuilder:validation:Required"
+	// KubebuilderRequiredMarker is the marker that indicates that a field is required in kubebuilder.
+	KubebuilderRequiredMarker = "kubebuilder:validation:Required"
 )
 
-// Analyzer is the analyzer for the optionalorrequired package.
-// It checks that all struct fields are marked either with the optional or required markers.
-// It also checks that upstream markers are preferred over kubebuilder markers.
-var Analyzer = &analysis.Analyzer{
-	Name:     name,
-	Doc:      "Checks that all struct fields are marked either with the optional or required markers.",
-	Run:      run,
-	Requires: []*analysis.Analyzer{inspect.Analyzer, markers.Analyzer},
+type analyzer struct {
+	primaryOptionalMarker   string
+	secondaryOptionalMarker string
+
+	primaryRequiredMarker   string
+	secondaryRequiredMarker string
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
+// newAnalyzer creates a new analyzer with the given configuration.
+func newAnalyzer(cfg config.OptionalOrRequiredConfig) (*analysis.Analyzer, error) {
+	defaultConfig(&cfg)
+
+	a := &analyzer{}
+
+	switch cfg.PreferredOptionalMarker {
+	case OptionalMarker:
+		a.primaryOptionalMarker = OptionalMarker
+		a.secondaryOptionalMarker = KubebuilderOptionalMarker
+	case KubebuilderOptionalMarker:
+		a.primaryOptionalMarker = KubebuilderOptionalMarker
+		a.secondaryOptionalMarker = OptionalMarker
+	}
+
+	switch cfg.PreferredRequiredMarker {
+	case RequiredMarker:
+		a.primaryRequiredMarker = RequiredMarker
+		a.secondaryRequiredMarker = KubebuilderRequiredMarker
+	case KubebuilderRequiredMarker:
+		a.primaryRequiredMarker = KubebuilderRequiredMarker
+		a.secondaryRequiredMarker = RequiredMarker
+	}
+
+	return &analysis.Analyzer{
+		Name:     name,
+		Doc:      "Checks that all struct fields are marked either with the optional or required markers.",
+		Run:      a.run,
+		Requires: []*analysis.Analyzer{inspect.Analyzer, markers.Analyzer},
+	}, nil
+}
+
+func (a *analyzer) run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	markersAccess := pass.ResultOf[markers.Analyzer].(markers.Markers)
 
@@ -63,70 +94,70 @@ func run(pass *analysis.Pass) (interface{}, error) {
 			fieldName := field.Names[0].Name
 			fieldMarkers := markersAccess.StructFieldMarkers(sTyp, fieldName)
 
-			checkField(pass, field, fieldMarkers)
+			a.checkField(pass, field, fieldMarkers)
 		}
 	})
 
 	return nil, nil
 }
 
-func checkField(pass *analysis.Pass, field *ast.Field, fieldMarkers markers.MarkerSet) {
+func (a *analyzer) checkField(pass *analysis.Pass, field *ast.Field, fieldMarkers markers.MarkerSet) {
 	if field == nil || len(field.Names) == 0 {
 		return
 	}
 
 	fieldName := field.Names[0].Name
 
-	hasOptional := fieldMarkers.Has(optionalMarker)
-	hasRequired := fieldMarkers.Has(requiredMarker)
+	hasPrimaryOptional := fieldMarkers.Has(a.primaryOptionalMarker)
+	hasPrimaryRequired := fieldMarkers.Has(a.primaryRequiredMarker)
 
-	hasKubebuilderOptional := fieldMarkers.Has(kubebuilderOptionalMarker)
-	hasKubebuilderRequired := fieldMarkers.Has(kubebuilderRequiredMarker)
+	hasSecondaryOptional := fieldMarkers.Has(a.secondaryOptionalMarker)
+	hasSecondaryRequired := fieldMarkers.Has(a.secondaryRequiredMarker)
 
-	hasEitherOptional := hasOptional || hasKubebuilderOptional
-	hasEitherRequired := hasRequired || hasKubebuilderRequired
+	hasEitherOptional := hasPrimaryOptional || hasSecondaryOptional
+	hasEitherRequired := hasPrimaryRequired || hasSecondaryRequired
 
-	hasBothOptional := hasOptional && hasKubebuilderOptional
-	hasBothRequired := hasRequired && hasKubebuilderRequired
+	hasBothOptional := hasPrimaryOptional && hasSecondaryOptional
+	hasBothRequired := hasPrimaryRequired && hasSecondaryRequired
 
 	switch {
 	case hasEitherOptional && hasEitherRequired:
 		pass.Reportf(field.Pos(), "field %s must not be marked as both optional and required", fieldName)
-	case hasKubebuilderOptional:
-		marker := fieldMarkers[kubebuilderOptionalMarker]
+	case hasSecondaryOptional:
+		marker := fieldMarkers[a.secondaryOptionalMarker]
 		if hasBothOptional {
-			pass.Report(reportShouldRemoveKubebuilderMarker(field, marker, optionalMarker, kubebuilderOptionalMarker))
+			pass.Report(reportShouldRemoveSecondaryMarker(field, marker, a.primaryOptionalMarker, a.secondaryOptionalMarker))
 		} else {
-			pass.Report(reportShouldReplaceKubebuilderMarker(field, marker, optionalMarker, kubebuilderOptionalMarker))
+			pass.Report(reportShouldReplaceSecondaryMarker(field, marker, a.primaryOptionalMarker, a.secondaryOptionalMarker))
 		}
-	case hasKubebuilderRequired:
-		marker := fieldMarkers[kubebuilderRequiredMarker]
+	case hasSecondaryRequired:
+		marker := fieldMarkers[a.secondaryRequiredMarker]
 		if hasBothRequired {
-			pass.Report(reportShouldRemoveKubebuilderMarker(field, marker, requiredMarker, kubebuilderRequiredMarker))
+			pass.Report(reportShouldRemoveSecondaryMarker(field, marker, a.primaryRequiredMarker, a.secondaryRequiredMarker))
 		} else {
-			pass.Report(reportShouldReplaceKubebuilderMarker(field, marker, requiredMarker, kubebuilderRequiredMarker))
+			pass.Report(reportShouldReplaceSecondaryMarker(field, marker, a.primaryRequiredMarker, a.secondaryRequiredMarker))
 		}
-	case hasOptional || hasRequired:
+	case hasPrimaryOptional || hasPrimaryRequired:
 		// This is the correct state.
 	default:
-		pass.Reportf(field.Pos(), "field %s must be marked as optional or required", fieldName)
+		pass.Reportf(field.Pos(), "field %s must be marked as %s or %s", fieldName, a.primaryOptionalMarker, a.primaryRequiredMarker)
 	}
 }
 
-func reportShouldReplaceKubebuilderMarker(field *ast.Field, marker markers.Marker, desiredMarker, kubebuilderMaker string) analysis.Diagnostic {
+func reportShouldReplaceSecondaryMarker(field *ast.Field, marker markers.Marker, primaryMarker, secondaryMarker string) analysis.Diagnostic {
 	fieldName := field.Names[0].Name
 
 	return analysis.Diagnostic{
 		Pos:     field.Pos(),
-		Message: fmt.Sprintf("field %s should use marker %s instead of %s", fieldName, desiredMarker, kubebuilderMaker),
+		Message: fmt.Sprintf("field %s should use marker %s instead of %s", fieldName, primaryMarker, secondaryMarker),
 		SuggestedFixes: []analysis.SuggestedFix{
 			{
-				Message: fmt.Sprintf("should replace `%s` with `%s`", kubebuilderMaker, desiredMarker),
+				Message: fmt.Sprintf("should replace `%s` with `%s`", secondaryMarker, primaryMarker),
 				TextEdits: []analysis.TextEdit{
 					{
 						Pos:     marker.Pos,
 						End:     marker.End,
-						NewText: []byte(fmt.Sprintf("// +%s", desiredMarker)),
+						NewText: []byte(fmt.Sprintf("// +%s", primaryMarker)),
 					},
 				},
 			},
@@ -134,15 +165,15 @@ func reportShouldReplaceKubebuilderMarker(field *ast.Field, marker markers.Marke
 	}
 }
 
-func reportShouldRemoveKubebuilderMarker(field *ast.Field, marker markers.Marker, desiredMarker, kubebuilderMaker string) analysis.Diagnostic {
+func reportShouldRemoveSecondaryMarker(field *ast.Field, marker markers.Marker, primaryMarker, secondaryMarker string) analysis.Diagnostic {
 	fieldName := field.Names[0].Name
 
 	return analysis.Diagnostic{
 		Pos:     field.Pos(),
-		Message: fmt.Sprintf("field %s should use only the marker %s, %s is not required", fieldName, desiredMarker, kubebuilderMaker),
+		Message: fmt.Sprintf("field %s should use only the marker %s, %s is not required", fieldName, primaryMarker, secondaryMarker),
 		SuggestedFixes: []analysis.SuggestedFix{
 			{
-				Message: fmt.Sprintf("should remove `// +%s`", kubebuilderMaker),
+				Message: fmt.Sprintf("should remove `// +%s`", secondaryMarker),
 				TextEdits: []analysis.TextEdit{
 					{
 						Pos:     marker.Pos,
@@ -152,5 +183,15 @@ func reportShouldRemoveKubebuilderMarker(field *ast.Field, marker markers.Marker
 				},
 			},
 		},
+	}
+}
+
+func defaultConfig(cfg *config.OptionalOrRequiredConfig) {
+	if cfg.PreferredOptionalMarker == "" {
+		cfg.PreferredOptionalMarker = OptionalMarker
+	}
+
+	if cfg.PreferredRequiredMarker == "" {
+		cfg.PreferredRequiredMarker = RequiredMarker
 	}
 }
