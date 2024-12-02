@@ -1,11 +1,15 @@
 package analysis
 
 import (
+	"fmt"
+
 	"github.com/JoelSpeed/kal/pkg/analysis/commentstart"
 	"github.com/JoelSpeed/kal/pkg/analysis/jsontags"
 	"github.com/JoelSpeed/kal/pkg/analysis/optionalorrequired"
 	"github.com/JoelSpeed/kal/pkg/config"
 	"golang.org/x/tools/go/analysis"
+
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -16,7 +20,7 @@ type AnalyzerInitializer interface {
 
 	// Init returns the newly initialized analyzer.
 	// It will be passed the complete LintersConfig and is expected to rely only on its own configuration.
-	Init(config.LintersConfig) *analysis.Analyzer
+	Init(config.LintersConfig) (*analysis.Analyzer, error)
 
 	// Default determines whether the inializer intializes an analyzer that should be
 	// on by default, or not.
@@ -32,7 +36,7 @@ type Registry interface {
 
 	// InitializeLinters returns a set of newly initialized linters based on the
 	// provided configuration.
-	InitializeLinters(config.Linters, config.LintersConfig) []*analysis.Analyzer
+	InitializeLinters(config.Linters, config.LintersConfig) ([]*analysis.Analyzer, error)
 }
 
 type registry struct {
@@ -77,8 +81,9 @@ func (r *registry) AllLinters() sets.Set[string] {
 }
 
 // InitializeLinters returns a list of initialized linters based on the provided config.
-func (r *registry) InitializeLinters(cfg config.Linters, lintersCfg config.LintersConfig) []*analysis.Analyzer {
+func (r *registry) InitializeLinters(cfg config.Linters, lintersCfg config.LintersConfig) ([]*analysis.Analyzer, error) {
 	analyzers := []*analysis.Analyzer{}
+	errs := []error{}
 
 	enabled := sets.New(cfg.Enable...)
 	disabled := sets.New(cfg.Disable...)
@@ -88,9 +93,15 @@ func (r *registry) InitializeLinters(cfg config.Linters, lintersCfg config.Linte
 
 	for _, initializer := range r.initializers {
 		if !disabled.Has(initializer.Name()) && (allEnabled || enabled.Has(initializer.Name()) || !allDisabled && initializer.Default()) {
-			analyzers = append(analyzers, initializer.Init(lintersCfg))
+			a, err := initializer.Init(lintersCfg)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to initialize linter %s: %w", initializer.Name(), err))
+				continue
+			}
+
+			analyzers = append(analyzers, a)
 		}
 	}
 
-	return analyzers
+	return analyzers, kerrors.NewAggregate(errs)
 }

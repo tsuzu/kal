@@ -1,16 +1,18 @@
 package main
 
 import (
-	"github.com/JoelSpeed/kal/pkg/analysis/commentstart"
-	"github.com/JoelSpeed/kal/pkg/analysis/jsontags"
-	"github.com/JoelSpeed/kal/pkg/analysis/optionalorrequired"
+	kalanalysis "github.com/JoelSpeed/kal/pkg/analysis"
+	"github.com/JoelSpeed/kal/pkg/config"
 	"golang.org/x/tools/go/analysis/multichecker"
 )
 
 func main() {
+	analyzers, err := kalanalysis.NewRegistry().InitializeLinters(config.Linters{}, config.LintersConfig{})
+	if err != nil {
+		panic(err)
+	}
+
 	multichecker.Main(
-		jsontags.Analyzer,
-		commentstart.Analyzer,
-		optionalorrequired.Analyzer,
+		analyzers...,
 	)
 }

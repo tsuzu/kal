@@ -44,7 +44,8 @@ var _ = Describe("Registry", func() {
 
 		DescribeTable("Initialize Linters", func(in initLintersTableInput) {
 			r := analysis.NewRegistry()
-			linters := r.InitializeLinters(in.config, in.lintersConfig)
+			linters, err := r.InitializeLinters(in.config, in.lintersConfig)
+			Expect(err).NotTo(HaveOccurred())
 
 			toLinterNames := func(a []*goanalysis.Analyzer) []string {
 				names := []string{}

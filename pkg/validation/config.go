@@ -15,6 +15,7 @@ func ValidateGolangCIConfig(g config.GolangCIConfig, fldPath *field.Path) error 
 	var fieldErrors field.ErrorList
 
 	fieldErrors = append(fieldErrors, ValidateLinters(g.Linters, fldPath.Child("linters"))...)
+	fieldErrors = append(fieldErrors, ValidateLintersConfig(g.LintersConfig, fldPath.Child("lintersConfig"))...)
 
 	return fieldErrors.ToAggregate()
 }

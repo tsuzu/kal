@@ -6,6 +6,8 @@ import (
 	"regexp"
 
 	"github.com/JoelSpeed/kal/pkg/analysis/helpers/extractjsontags"
+	"github.com/JoelSpeed/kal/pkg/config"
+
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -18,16 +20,32 @@ const (
 	name = "jsontags"
 )
 
-// Analyzer is the analyzer for the jsontags package.
-// It checks that all struct fields in an API are tagged with json tags.
-var Analyzer = &analysis.Analyzer{
-	Name:     name,
-	Doc:      "Check that all struct fields in an API are tagged with json tags",
-	Run:      run,
-	Requires: []*analysis.Analyzer{inspect.Analyzer, extractjsontags.Analyzer},
+type analyzer struct {
+	jsonTagRegex *regexp.Regexp
 }
 
-func run(pass *analysis.Pass) (interface{}, error) {
+// newAnalyzer creates a new analyzer with the given json tag regex.
+func newAnalyzer(cfg config.JSONTagsConfig) (*analysis.Analyzer, error) {
+	defaultConfig(&cfg)
+
+	jsonTagRegex, err := regexp.Compile(cfg.JSONTagRegex)
+	if err != nil {
+		return nil, err
+	}
+
+	a := &analyzer{
+		jsonTagRegex: jsonTagRegex,
+	}
+
+	return &analysis.Analyzer{
+		Name:     name,
+		Doc:      "Check that all struct fields in an API are tagged with json tags",
+		Run:      a.run,
+		Requires: []*analysis.Analyzer{inspect.Analyzer, extractjsontags.Analyzer},
+	}, nil
+}
+
+func (a *analyzer) run(pass *analysis.Pass) (interface{}, error) {
 	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	jsonTags := pass.ResultOf[extractjsontags.Analyzer].(extractjsontags.StructFieldTags)
 
@@ -47,14 +65,14 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		for i := 0; i < styp.NumFields(); i++ {
 			field := styp.Field(i)
 
-			checkField(pass, s, field, jsonTags)
+			a.checkField(pass, s, field, jsonTags)
 		}
 	})
 
 	return nil, nil
 }
 
-func checkField(pass *analysis.Pass, sTyp *ast.StructType, field *types.Var, jsonTags extractjsontags.StructFieldTags) {
+func (a *analyzer) checkField(pass *analysis.Pass, sTyp *ast.StructType, field *types.Var, jsonTags extractjsontags.StructFieldTags) {
 	tagInfo := jsonTags.FieldTags(sTyp, field.Name())
 
 	if tagInfo.Missing {
@@ -71,13 +89,14 @@ func checkField(pass *analysis.Pass, sTyp *ast.StructType, field *types.Var, jso
 		return
 	}
 
-	matched, err := regexp.Match(camelCaseRegex, []byte(tagInfo.Name))
-	if err != nil {
-		pass.Reportf(field.Pos(), "error matching json tag: %v", err)
-		return
-	}
-
+	matched := a.jsonTagRegex.Match([]byte(tagInfo.Name))
 	if !matched {
-		pass.Reportf(field.Pos(), "field %s has non-camel case json tag: %s", field.Name(), tagInfo.Name)
+		pass.Reportf(field.Pos(), "field %s json tag does not match pattern %q: %s", field.Name(), a.jsonTagRegex.String(), tagInfo.Name)
+	}
+}
+
+func defaultConfig(cfg *config.JSONTagsConfig) {
+	if cfg.JSONTagRegex == "" {
+		cfg.JSONTagRegex = camelCaseRegex
 	}
 }
