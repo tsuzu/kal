@@ -27,6 +27,7 @@ type AnalyzerInitializer interface {
 	Default() bool
 }
 
+// Registry is used to fetch and initialize analyzers.
 type Registry interface {
 	// DefaultLinters returns the names of linters that are enabled by default.
 	DefaultLinters() sets.Set[string]

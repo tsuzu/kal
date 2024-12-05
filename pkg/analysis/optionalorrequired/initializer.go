@@ -21,7 +21,7 @@ func (initializer) Name() string {
 
 // Init returns the intialized Analyzer.
 func (initializer) Init(cfg config.LintersConfig) (*analysis.Analyzer, error) {
-	return newAnalyzer(cfg.OptionalOrRequired)
+	return newAnalyzer(cfg.OptionalOrRequired), nil
 }
 
 // Default determines whether this Analyzer is on by default, or not.

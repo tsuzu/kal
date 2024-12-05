@@ -1,6 +1,7 @@
 package extractjsontags
 
 import (
+	"errors"
 	"go/ast"
 	"go/types"
 	"reflect"
@@ -9,6 +10,11 @@ import (
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
+)
+
+var (
+	errCouldNotGetInspector          = errors.New("could not get inspector")
+	errCouldNotCreateStructFieldTags = errors.New("could not create new structFieldTags")
 )
 
 // StructFieldTags is used to find information about
@@ -57,17 +63,27 @@ var Analyzer = &analysis.Analyzer{
 }
 
 func run(pass *analysis.Pass) (interface{}, error) {
-	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	inspect, ok := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
+	if !ok {
+		return nil, errCouldNotGetInspector
+	}
 
 	// Filter to structs so that we can iterate over fields in a struct.
 	nodeFilter := []ast.Node{
 		(*ast.StructType)(nil),
 	}
 
-	results := newStructFieldTags().(*structFieldTags)
+	results, ok := newStructFieldTags().(*structFieldTags)
+	if !ok {
+		return nil, errCouldNotCreateStructFieldTags
+	}
 
 	inspect.Preorder(nodeFilter, func(n ast.Node) {
-		s := n.(*ast.StructType)
+		s, ok := n.(*ast.StructType)
+		if !ok {
+			return
+		}
+
 		styp, ok := pass.TypesInfo.Types[s].Type.(*types.Struct)
 		// Type information may be incomplete.
 		if !ok {
@@ -102,6 +118,7 @@ func extractTagInfo(tag string) FieldTagInfo {
 	}
 
 	tagName := tagValues[0]
+
 	return FieldTagInfo{Name: tagName, OmitEmpty: len(tagValues) == 2 && tagValues[1] == "omitempty"}
 }
 
