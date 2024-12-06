@@ -21,6 +21,7 @@ var _ = Describe("Registry", func() {
 				"jsontags",
 				"optionalorrequired",
 				"requiredfields",
+				"nophase",
 			))
 		})
 	})
@@ -34,6 +35,7 @@ var _ = Describe("Registry", func() {
 				"jsontags",
 				"optionalorrequired",
 				"requiredfields",
+				"nophase",
 			))
 		})
 	})

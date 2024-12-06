@@ -6,6 +6,7 @@ import (
 	"github.com/JoelSpeed/kal/pkg/analysis/commentstart"
 	"github.com/JoelSpeed/kal/pkg/analysis/conditions"
 	"github.com/JoelSpeed/kal/pkg/analysis/jsontags"
+	"github.com/JoelSpeed/kal/pkg/analysis/nophase"
 	"github.com/JoelSpeed/kal/pkg/analysis/optionalorrequired"
 	"github.com/JoelSpeed/kal/pkg/analysis/requiredfields"
 	"github.com/JoelSpeed/kal/pkg/config"
@@ -55,6 +56,7 @@ func NewRegistry() Registry {
 			jsontags.Initializer(),
 			optionalorrequired.Initializer(),
 			requiredfields.Initializer(),
+			nophase.Initializer(),
 		},
 	}
 }
