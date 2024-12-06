@@ -54,9 +54,9 @@ func NewRegistry() Registry {
 			conditions.Initializer(),
 			commentstart.Initializer(),
 			jsontags.Initializer(),
+			nophase.Initializer(),
 			optionalorrequired.Initializer(),
 			requiredfields.Initializer(),
-			nophase.Initializer(),
 		},
 	}
 }

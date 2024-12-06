@@ -19,9 +19,9 @@ var _ = Describe("Registry", func() {
 				"conditions",
 				"commentstart",
 				"jsontags",
+				"nophase",
 				"optionalorrequired",
 				"requiredfields",
-				"nophase",
 			))
 		})
 	})
@@ -33,9 +33,9 @@ var _ = Describe("Registry", func() {
 				"conditions",
 				"commentstart",
 				"jsontags",
+				"nophase",
 				"optionalorrequired",
 				"requiredfields",
-				"nophase",
 			))
 		})
 	})
