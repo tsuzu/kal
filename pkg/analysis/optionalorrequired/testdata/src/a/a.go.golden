@@ -25,6 +25,12 @@ type OptionalOrRequiredTestStruct struct {
 	KubebuilderRequiredMarker string // want "field KubebuilderRequiredMarker should use marker required instead of kubebuilder:validation:Required"
 
 	// +optional
+	MarkedWithKubeBuilderOptionalTwice string // want "field MarkedWithKubeBuilderOptionalTwice should use marker optional instead of kubebuilder:validation:Optional"
+
+	// +optional
+	MarkedWithKubeBuilderOptionalTwiceAndOptional string // want "field MarkedWithKubeBuilderOptionalTwiceAndOptional should use only the marker optional, kubebuilder:validation:Optional is not required"
+
+	// +optional
 	OptionalMarker string
 
 	// +required

@@ -199,7 +199,7 @@ type Marker struct {
 // MarkerSet is a set implementation for Markers that uses
 // the Marker value as the key, but returns the full Marker
 // as the result.
-type MarkerSet map[string]Marker
+type MarkerSet map[string][]Marker
 
 // NewMarkerSet initialises a new MarkerSet with the provided values.
 // If any markers have the same value, the latter marker in the list
@@ -217,7 +217,7 @@ func NewMarkerSet(markers ...Marker) MarkerSet {
 // will take precedence, no duplication checks are implemented.
 func (ms MarkerSet) Insert(markers ...Marker) {
 	for _, marker := range markers {
-		ms[marker.Value] = marker
+		ms[marker.Value] = append(ms[marker.Value], marker)
 	}
 }
 
