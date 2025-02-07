@@ -88,13 +88,61 @@ var _ = Describe("LintersConfig", func() {
 			},
 			expectedErr: "",
 		}),
+		Entry("With a valid ConditionsConfig UseProtobuf: Forbid", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				Conditions: config.ConditionsConfig{
+					UseProtobuf: config.ConditionsUseProtobufForbid,
+				},
+			},
+			expectedErr: "",
+		}),
 		Entry("With an invalid ConditionsConfig UseProtobuf", validateLintersConfigTableInput{
 			config: config.LintersConfig{
 				Conditions: config.ConditionsConfig{
 					UseProtobuf: "invalid",
 				},
 			},
-			expectedErr: "lintersConfig.conditions.useProtobuf: Invalid value: \"invalid\": invalid value, must be one of \"SuggestFix\", \"Warn\", \"Ignore\" or omitted",
+			expectedErr: "lintersConfig.conditions.useProtobuf: Invalid value: \"invalid\": invalid value, must be one of \"SuggestFix\", \"Warn\", \"Ignore\", \"Forbid\" or omitted",
+		}),
+		Entry("With a valid ConditionsConfig UsePatchStrategy: SuggestFix", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				Conditions: config.ConditionsConfig{
+					UsePatchStrategy: config.ConditionsUsePatchStrategySuggestFix,
+				},
+			},
+			expectedErr: "",
+		}),
+		Entry("With a valid ConditionsConfig UsePatchStrategy: Warn", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				Conditions: config.ConditionsConfig{
+					UsePatchStrategy: config.ConditionsUsePatchStrategyWarn,
+				},
+			},
+			expectedErr: "",
+		}),
+		Entry("With a valid ConditionsConfig UsePatchStrategy: Ignore", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				Conditions: config.ConditionsConfig{
+					UsePatchStrategy: config.ConditionsUsePatchStrategyIgnore,
+				},
+			},
+			expectedErr: "",
+		}),
+		Entry("With a valid ConditionsConfig UsePatchStrategy: Forbid", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				Conditions: config.ConditionsConfig{
+					UsePatchStrategy: config.ConditionsUsePatchStrategyForbid,
+				},
+			},
+			expectedErr: "",
+		}),
+		Entry("With an invalid ConditionsConfig UsePatchStrategy", validateLintersConfigTableInput{
+			config: config.LintersConfig{
+				Conditions: config.ConditionsConfig{
+					UsePatchStrategy: "invalid",
+				},
+			},
+			expectedErr: "lintersConfig.conditions.usePatchStrategy: Invalid value: \"invalid\": invalid value, must be one of \"SuggestFix\", \"Warn\", \"Ignore\", \"Forbid\" or omitted",
 		}),
 
 		// JSONTagsConfig validation
