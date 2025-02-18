@@ -5,6 +5,8 @@ type CommentStartTestStruct struct {
 	EmptyJSONTag  string `json:""`
 	InlineJSONTag string `json:",inline"`
 	NoComment     string `json:"noComment"` // want "field NoComment is missing godoc comment"
+	Ignored       string `json:"-"`
+	Hyphen        string `json:"-,"` // want "field Hyphen is missing godoc comment"
 
 	// incorrectStartComment is a field with an incorrect start to the comment. // want "godoc for field IncorrectStartComment should start with 'incorrectStartComment ...'"
 	IncorrectStartComment string `json:"incorrectStartComment"`
